@@ -14,15 +14,16 @@ class TaskStoreRequest extends FormRequest
     public function rules()
     {
         return [
-            'task' => 'required|max:255'
+            'title' => 'required|max:255',
+            'category_id' => 'nullable'
         ];
     }
 
     public function messages()
     {
         return [
-            'task.required' => 'Task required!',
-            'task.max' => 'Max size 255 symbols'
+            'title.required' => 'Task required!',
+            'title.max' => 'Max size 255 symbols',
         ];
     }
 }

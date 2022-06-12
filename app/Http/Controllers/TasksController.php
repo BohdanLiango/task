@@ -3,66 +3,152 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\TaskStoreRequest;
-use App\Models\Tasks;
+use App\Http\Services\CategoryService;
+use App\Http\Services\TaskService;
+use Exception;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\View\Factory;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 
 class TasksController extends Controller
 {
-    public function show($tasks)
+    private TaskService $services;
+    private CategoryService $categoryService;
+
+    public function __construct(TaskService $taskService, CategoryService $categoryService)
     {
-        return view('welcome', compact('tasks'));
+        $this->services = $taskService;
+        $this->categoryService = $categoryService;
     }
 
+    /**
+     * @param $tasks
+     * @return Application|Factory|View
+     */
+    private function index($tasks)
+    {
+        $categories = $this->categoryService->getAllToForm();
+
+        return view('pages.tasks.index', compact('tasks', 'categories'));
+    }
+
+    /**
+     * @return Application|Factory|View
+     */
     public function showAll()
     {
-        return $this->show(Tasks::orderBy('is_complete')->latest()->paginate(10));
+        return $this->index($this->services->getAll());
     }
 
+    /**
+     * @return Application|Factory|View
+     */
+    public function showActive()
+    {
+        return $this->index($this->services->getActive());
+    }
+
+    /**
+     * @return Application|Factory|View
+     */
     public function showHide()
     {
-        return $this->show(Tasks::where('is_complete',  0)->latest()->paginate(10));
+        return $this->index($this->services->getHide());
     }
 
+    /**
+     * @return Application|Factory|View
+     */
+    public function showDeleted()
+    {
+        return $this->index($this->services->getDeleted());
+    }
+
+    /**
+     * @param TaskStoreRequest $request
+     * @return RedirectResponse|never
+     */
     public function save(TaskStoreRequest $request)
     {
        $request->validated();
-       $store = new Tasks();
-       $data = [
-           'task' => $request->task,
-           'is_complete' => false
-       ];
-       $store->fill($data)->save();
 
-       return back();
+        try {
+            $this->services->store($request->title, $request->category_id);
+            return back();
+        }catch (Exception $e){
+            return abort(403);
+        }
+
     }
 
-    private function findOneById($id)
-    {
-        return Tasks::findOrFail($id);
-    }
-
+    /**
+     * @param $id
+     * @return RedirectResponse
+     */
     public function changeStatusToFinish($id)
     {
-        $this->changeStatus($id, 1);
-        return back();
+        try {
+            $this->services->changeStatus($id, config('tasks.is_completed'));
+            return back();
+        }catch (Exception $e){
+            return abort(403);
+        }
     }
 
+    /**
+     * @param $id
+     * @return RedirectResponse|never
+     */
     public function changeStatusToStartAgain($id)
     {
-        $this->changeStatus($id, 0);
-        return back();
+        try {
+            $this->services->changeStatus($id, config('tasks.is_not_completed'));
+            return back();
+        }catch (Exception $e){
+            return abort(403);
+        }
     }
 
-    private function changeStatus($id, $status_id)
+    /**
+     * @param $id
+     * @return RedirectResponse|never
+     */
+    public function restore($id)
     {
-        $update = $this->findOneById($id);
-        $update->is_complete = $status_id;
-        $update->save();
+        try {
+            $this->services->resfore($id);
+            return back();
+        }catch (Exception $e){
+            return abort(403);
+        }
     }
 
+    /**
+     * @param $id
+     * @return RedirectResponse|never
+     */
     public function destroy($id)
     {
-        $destroy = $this->findOneById($id);
-        $destroy->delete();
-        return back();
+        try {
+            $this->services->softDelete($id);
+            return back();
+        }catch (Exception $e){
+            return abort(403);
+        }
+    }
+
+    /**
+     * @param $id
+     * @return RedirectResponse|never
+     */
+    public function forceDelete($id)
+    {
+        try {
+            $this->services->forceDelete($id);
+            return back();
+        }catch (Exception $e){
+            return abort(403);
+        }
     }
 }
